@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#2f6b5f">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<title>Essensroulette</title>
+<style>
+:root{--bg:#f6f7f5;--card:#fff;--ink:#1e2a26;--muted:#66746f;--accent:#2f6b5f;--accent2:#e4efe9;--danger:#9b3b35;--line:#dfe5e2}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--ink)}
+header{position:sticky;top:0;background:rgba(246,247,245,.95);backdrop-filter:blur(10px);padding:18px 16px 10px;z-index:4}
+h1{font-size:1.55rem;margin:0} .sub{color:var(--muted);font-size:.9rem;margin-top:4px}
+main{max-width:760px;margin:auto;padding:8px 14px 80px}
+nav{display:flex;gap:8px;overflow:auto;margin:8px 0 14px}
+button,.btn{border:0;border-radius:14px;padding:11px 14px;font-weight:700;background:var(--accent);color:white;cursor:pointer}
+button.secondary{background:var(--accent2);color:var(--accent)}
+button.ghost{background:white;color:var(--ink);border:1px solid var(--line)}
+button.danger{background:#f7e5e3;color:var(--danger)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:14px;margin-bottom:12px;box-shadow:0 2px 10px rgba(0,0,0,.03)}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.week-row{display:grid;grid-template-columns:88px 1fr;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)} .week-row:last-child{border-bottom:0}
+.day{font-weight:800;color:var(--accent)}
+input,select{width:100%;padding:11px;border-radius:12px;border:1px solid #cfd8d4;background:white;font:inherit}
+.row{display:flex;gap:8px;align-items:center} .row>*{flex:1}
+.hidden{display:none!important}
+.list-item{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.tag{display:inline-block;background:var(--accent2);color:var(--accent);border-radius:999px;padding:3px 8px;font-size:.78rem;margin-top:4px}
+.small{font-size:.86rem;color:var(--muted)} .actions{display:flex;gap:6px} .actions button{padding:8px 10px;border-radius:10px}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.notice{background:#fff8dd;border:1px solid #eadb9e;padding:10px;border-radius:12px;font-size:.88rem}
+@media(max-width:520px){.grid{grid-template-columns:1fr} .week-row{grid-template-columns:72px 1fr}}
+</style>
+</head>
+<body>
+<header><h1>🍽️ Essensroulette</h1><div class="sub">Aus euren 84 Gerichten – erweiterbar direkt am Handy</div></header>
+<main>
+<nav>
+<button class="secondary" onclick="showTab('week')">Wochenplan</button>
+<button class="secondary" onclick="showTab('dishes')">Gerichte</button>
+<button class="secondary" onclick="showTab('backup')">Sicherung</button>
+</nav>
+
+<section id="week">
+<div class="card">
+<div class="row"><div><b>Neue Zufallswoche</b><div class="small">7 Gerichte, keine Wiederholung</div></div><button onclick="makeWeek()">🎲 Würfeln</button></div>
+</div>
+<div class="card" id="weekList"></div>
+</section>
+
+<section id="dishes" class="hidden">
+<div class="card">
+<b>Gericht hinzufügen</b>
+<div class="grid" style="margin-top:10px">
+<input id="newName" placeholder="z. B. Paella">
+<select id="newCat"><option>Standard</option><option>Fisch & Meer</option><option>Vegetarisch</option><option>Restaurant</option><option>Sonstiges</option></select>
+</div>
+<button style="margin-top:10px" onclick="addDish()">＋ Hinzufügen</button>
+</div>
+<div class="card">
+<div class="toolbar">
+<input id="search" placeholder="Gericht suchen…" oninput="renderDishes()">
+<select id="filter" onchange="renderDishes()"><option value="">Alle Kategorien</option></select>
+</div>
+<div class="small" id="count"></div>
+<div id="dishList"></div>
+</div>
+</section>
+
+<section id="backup" class="hidden">
+<div class="card">
+<b>Sicherung & Übertragung</b>
+<p class="small">Deine Änderungen werden automatisch auf diesem Gerät gespeichert. Für Gerätewechsel oder als Backup kannst du die Liste exportieren und später wieder importieren.</p>
+<div class="toolbar">
+<button onclick="exportData()">⬇️ Exportieren</button>
+<label class="btn" style="display:inline-block">⬆️ Importieren<input id="importFile" type="file" accept=".json" hidden onchange="importData(event)"></label>
+<button class="danger" onclick="resetData()">↺ Ursprungsliste</button>
+</div>
+<div class="notice">Tipp: Exportiere die Liste gelegentlich. Browserdaten können beim Zurücksetzen des Browsers gelöscht werden.</div>
+</div>
+</section>
+</main>
+<script>
+const STARTER=[{"id": 1, "name": "Backhendl", "category": "Standard"}, {"id": 2, "name": "Burger", "category": "Standard"}, {"id": 3, "name": "Cevapcici + Pommes", "category": "Standard"}, {"id": 4, "name": "Cordon Bleu + Salat", "category": "Standard"}, {"id": 5, "name": "Currywurst + Pommes", "category": "Standard"}, {"id": 6, "name": "Ente + Knödel + Blaukraut", "category": "Standard"}, {"id": 7, "name": "Fleischpflanzerl + Kartoffelbrei", "category": "Standard"}, {"id": 8, "name": "Frittatensuppe", "category": "Standard"}, {"id": 9, "name": "Gebackener Reis", "category": "Standard"}, {"id": 10, "name": "Gulasch + Nudeln + Salat", "category": "Standard"}, {"id": 11, "name": "Gulaschsuppe + Kartoffeln + Paprika", "category": "Standard"}, {"id": 12, "name": "Hähnchenschnitzel + Gemüsegrill", "category": "Standard"}, {"id": 13, "name": "Hühnersuppe + Einlage", "category": "Standard"}, {"id": 14, "name": "Hühnerfrikassee + Kartoffelbrei", "category": "Standard"}, {"id": 15, "name": "Kaiserschmarrn", "category": "Standard"}, {"id": 16, "name": "Käsefondue + Baguette", "category": "Standard"}, {"id": 17, "name": "Königsberger Klopse + Kartoffeln", "category": "Standard"}, {"id": 18, "name": "Knödel / Cordon Bleu + Salat", "category": "Standard"}, {"id": 19, "name": "Lasagne", "category": "Standard"}, {"id": 20, "name": "Moussaka", "category": "Standard"}, {"id": 21, "name": "Ossobuco + Tagliatelle", "category": "Standard"}, {"id": 22, "name": "Pasta Boscaiola", "category": "Standard"}, {"id": 23, "name": "Pasta Amatriciana", "category": "Standard"}, {"id": 24, "name": "Pfannkuchen", "category": "Standard"}, {"id": 25, "name": "Pilzrisotto", "category": "Standard"}, {"id": 26, "name": "Rindsuppe + Grießnockerl / Pfannkuchen", "category": "Standard"}, {"id": 27, "name": "Rouladen + Kartoffelbrei", "category": "Standard"}, {"id": 28, "name": "Steak + Salat + Ofenkartoffel", "category": "Standard"}, {"id": 29, "name": "Schnitzel + Pommes", "category": "Standard"}, {"id": 30, "name": "Schweinebraten", "category": "Standard"}, {"id": 31, "name": "Spaghetti Bolognese", "category": "Standard"}, {"id": 32, "name": "Tagliatelle + Pilze + Salat", "category": "Standard"}, {"id": 33, "name": "Wraps", "category": "Standard"}, {"id": 34, "name": "Leberkäse + Spiegelei + Salat", "category": "Standard"}, {"id": 35, "name": "Schaschlik + Reis/Pommes", "category": "Standard"}, {"id": 36, "name": "Griesnockerlsuppe", "category": "Standard"}, {"id": 37, "name": "Hackbraten + Kartoffelbrei", "category": "Standard"}, {"id": 38, "name": "Grillsteak + Texassalat", "category": "Standard"}, {"id": 39, "name": "Bratwürstl + Sauerkraut", "category": "Standard"}, {"id": 40, "name": "Kassler + Kraut", "category": "Standard"}, {"id": 41, "name": "Dampfnudeln", "category": "Standard"}, {"id": 42, "name": "Gebackener Camembert", "category": "Standard"}, {"id": 43, "name": "Pasta Puttanesca", "category": "Standard"}, {"id": 44, "name": "Pasta Carbonara", "category": "Standard"}, {"id": 45, "name": "Pasta Bolognese", "category": "Standard"}, {"id": 46, "name": "Pasta Pesto", "category": "Standard"}, {"id": 47, "name": "Pastizio", "category": "Standard"}, {"id": 48, "name": "Döner", "category": "Standard"}, {"id": 49, "name": "Pizza", "category": "Standard"}, {"id": 50, "name": "Restaurantbesuch", "category": "Standard"}, {"id": 51, "name": "Grillhendl", "category": "Standard"}, {"id": 52, "name": "BBQ Ribs", "category": "Standard"}, {"id": 53, "name": "BBQ Chicken", "category": "Standard"}, {"id": 54, "name": "American Plate", "category": "Standard"}, {"id": 55, "name": "Chili con carne", "category": "Standard"}, {"id": 56, "name": "Kaspressknödel + Suppe", "category": "Standard"}, {"id": 57, "name": "Kaspressknödel +", "category": "Standard"}, {"id": 58, "name": "Inder", "category": "Standard"}, {"id": 59, "name": "Italiener", "category": "Standard"}, {"id": 60, "name": "Gut bürgerlich essen gehen", "category": "Standard"}, {"id": 61, "name": "Sushi", "category": "Standard"}, {"id": 62, "name": "All you can eat", "category": "Standard"}, {"id": 63, "name": "Schinkennudeln", "category": "Standard"}, {"id": 64, "name": "Backfisch im Bier-/Mineralwasserteig", "category": "Fisch & Meer"}, {"id": 65, "name": "Muscheln in Tomaten-Weißwein-Sud", "category": "Fisch & Meer"}, {"id": 66, "name": "Kalamari griechisch aus der Pfanne", "category": "Fisch & Meer"}, {"id": 67, "name": "Gegrillter Oktopus", "category": "Fisch & Meer"}, {"id": 68, "name": "Brathering mit Bratkartoffeln", "category": "Fisch & Meer"}, {"id": 69, "name": "Sahnehering mit Pellkartoffeln", "category": "Fisch & Meer"}, {"id": 70, "name": "Sardinen-Pasta mit Knoblauch und Chili", "category": "Fisch & Meer"}, {"id": 71, "name": "Fischsuppe aus Muschelsud und Resten", "category": "Fisch & Meer"}, {"id": 72, "name": "Gebeizter oder geräucherter Lachs auf Kartoffelpuffern + Salat", "category": "Fisch & Meer"}, {"id": 73, "name": "Gegrillte Makrele", "category": "Fisch & Meer"}, {"id": 74, "name": "Frittierte Sardinen", "category": "Fisch & Meer"}, {"id": 75, "name": "Fisch-Tacos", "category": "Fisch & Meer"}, {"id": 76, "name": "Fisch-Curry", "category": "Fisch & Meer"}, {"id": 77, "name": "Shakshuka mit Fisch", "category": "Fisch & Meer"}, {"id": 78, "name": "Ofenfisch unter Kräuter-Parmesan-Kruste", "category": "Fisch & Meer"}, {"id": 79, "name": "Fischfrikadellen", "category": "Fisch & Meer"}, {"id": 80, "name": "Fisch in Senfsauce", "category": "Fisch & Meer"}, {"id": 81, "name": "Mediterrane Fischpfanne", "category": "Fisch & Meer"}, {"id": 82, "name": "Pasta mit Räucherlachs und Zitrone", "category": "Fisch & Meer"}, {"id": 83, "name": "Oktopus-Kartoffel-Salat", "category": "Fisch & Meer"}, {"id": 84, "name": "Miesmuschel-Pasta aus Rest-Sud", "category": "Fisch & Meer"}];
+const DAYS=['Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag','Sonntag'];
+let dishes=load('dishes')||STARTER;
+let week=load('week')||[];
+
+function load(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}}
+function save(){localStorage.setItem('dishes',JSON.stringify(dishes));localStorage.setItem('week',JSON.stringify(week))}
+function showTab(id){['week','dishes','backup'].forEach(x=>document.getElementById(x).classList.toggle('hidden',x!==id));if(id==='dishes')renderDishes();if(id==='week')renderWeek()}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function makeWeek(){
+ if(dishes.length<7) return alert('Bitte mindestens 7 Gerichte anlegen.');
+ const pool=[...dishes];
+ for(let i=pool.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]]}
+ week=pool.slice(0,7).map(x=>x.id);save();renderWeek();
+}
+function renderWeek(){
+ const el=document.getElementById('weekList');
+ if(!week.length){el.innerHTML='<div class="small">Noch keine Woche gewürfelt.</div>';return}
+ el.innerHTML=week.map((id,i)=>{const d=dishes.find(x=>x.id===id);return `<div class="week-row"><div class="day">${DAYS[i]}</div><div>${d?esc(d.name):'<i>gelöscht</i>'}${d?`<div class="tag">${esc(d.category)}</div>`:''}</div></div>`}).join('');
+}
+function categories(){
+ return [...new Set(dishes.map(d=>d.category).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'de'));
+}
+function renderDishes(){
+ const f=document.getElementById('filter'); const cur=f.value;
+ f.innerHTML='<option value="">Alle Kategorien</option>'+categories().map(c=>`<option>${esc(c)}</option>`).join(''); f.value=cur;
+ const q=document.getElementById('search').value.toLowerCase(); const cat=f.value;
+ const arr=dishes.filter(d=>(!q||d.name.toLowerCase().includes(q))&&(!cat||d.category===cat)).sort((a,b)=>a.name.localeCompare(b.name,'de'));
+ document.getElementById('count').textContent=`${arr.length} von ${dishes.length} Gerichten`;
+ document.getElementById('dishList').innerHTML=arr.map(d=>`<div class="list-item"><div><b>${esc(d.name)}</b><div class="tag">${esc(d.category||'Ohne Kategorie')}</div></div><div class="actions"><button class="ghost" onclick="editDish(${d.id})">✏️</button><button class="danger" onclick="deleteDish(${d.id})">🗑️</button></div></div>`).join('');
+}
+function addDish(){
+ const n=document.getElementById('newName').value.trim(), c=document.getElementById('newCat').value;
+ if(!n)return;
+ if(dishes.some(d=>d.name.toLowerCase()===n.toLowerCase())) return alert('Dieses Gericht gibt es schon.');
+ const id=dishes.reduce((m,d)=>Math.max(m,d.id||0),0)+1;
+ dishes.push({id,name:n,category:c}); document.getElementById('newName').value=''; save();renderDishes();
+}
+function editDish(id){
+ const d=dishes.find(x=>x.id===id); if(!d)return;
+ const n=prompt('Gericht bearbeiten:',d.name); if(n===null||!n.trim())return;
+ const c=prompt('Kategorie:',d.category||'Standard'); if(c===null)return;
+ d.name=n.trim(); d.category=c.trim()||'Standard'; save();renderDishes();renderWeek();
+}
+function deleteDish(id){
+ const d=dishes.find(x=>x.id===id); if(!d)return;
+ if(!confirm(`„${d.name}“ wirklich löschen?`))return;
+ dishes=dishes.filter(x=>x.id!==id); week=week.filter(x=>x!==id); save();renderDishes();renderWeek();
+}
+function exportData(){
+ const blob=new Blob([JSON.stringify({version:1,dishes,week},null,2)],{type:'application/json'});
+ const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='essensroulette-backup.json';a.click();URL.revokeObjectURL(a.href);
+}
+function importData(e){
+ const file=e.target.files[0];if(!file)return; const r=new FileReader();
+ r.onload=()=>{try{const data=JSON.parse(r.result);if(!Array.isArray(data.dishes))throw 0;dishes=data.dishes;week=Array.isArray(data.week)?data.week:[];save();renderDishes();renderWeek();alert('Import abgeschlossen.')}catch{alert('Datei konnte nicht importiert werden.')}};r.readAsText(file);
+}
+function resetData(){
+ if(!confirm('Wirklich auf die ursprüngliche Gerichteliste zurücksetzen?'))return;
+ dishes=JSON.parse(JSON.stringify(STARTER));week=[];save();renderDishes();renderWeek();
+}
+if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+renderWeek();
+</script>
+</body></html>
